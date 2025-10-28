@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Chat – Blip</title>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Helvetica,Arial,sans-serif;margin:0;padding:2rem;background:#f7f7f7;color:#222}
+    .container{max-width:720px;margin:0 auto}
+    .card{background:#fff;border:1px solid #e5e5e5;border-radius:12px;padding:1.25rem}
+    .muted{color:#666}
+    .footer{margin-top:1rem;font-size:0.9rem}
+  </style>
+  <script src="https://unpkg.com/blip-chat-widget" type="text/javascript"></script>
+</head>
+<body>
+  <main class="container">
+    <div class="card">
+      <h1>Exemplo – Blip Chat</h1>
+      <p class="muted">Clique no botão flutuante no canto da página para abrir o chat.</p>
+      <div class="footer">Este é só um exemplo mínimo. Você pode colocar seu site aqui normalmente.</div>
+    </div>
+  </main>
+
+  <script>
+    (function () {
+      window.onload = function () {
+        new BlipChat()
+          .withAppKey('Y2hhdGJvdGRvc2l0ZTo5ZDZjNjkyNi05YWIyLTRhNDQtOWE4MS01ZTA1NzZiMmViZmE=')
+          .withButton({
+            color: "#03473c",
+            icon: "https://blipmediastore.blob.core.windows.net/permanent/Media_4_b2aba655-4729-49f6-8aeb-b7d8a251b79f"
+          })
+          .withCustomCommonUrl('https://focosmais.chat.blip.ai/')
+          .build();
+      };
+    })();
+  </script>
+</body>
+</html>
