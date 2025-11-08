@@ -1,40 +1,178 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Chat – Blip</title>
-  <style>
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Helvetica,Arial,sans-serif;margin:0;padding:2rem;background:#f7f7f7;color:#222}
-    .container{max-width:720px;margin:0 auto}
-    .card{background:#fff;border:1px solid #e5e5e5;border-radius:12px;padding:1.25rem}
-    .muted{color:#666}
-    .footer{margin-top:1rem;font-size:0.9rem}
-  </style>
-  <script src="https://unpkg.com/blip-chat-widget" type="text/javascript"></script>
+<meta charset="utf-8">
+<title>Gerador de Lista com Remoção</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { --bg:#0f172a; --panel:#111827; --muted:#9ca3af; --text:#e5e7eb; --acc:#22d3ee; --danger:#ef4444; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial; }
+  .wrap { max-width: 900px; margin: 40px auto; padding: 0 16px; }
+  h1 { font-size: 20px; margin: 0 0 12px; font-weight: 700; }
+  .panel { background:var(--panel); border:1px solid #1f2937; border-radius: 14px; padding:16px; }
+  textarea { width:100%; min-height: 180px; resize: vertical; background:#0b1220; color:var(--text); border:1px solid #1f2937; border-radius:10px; padding:10px; font-family: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; }
+  .actions { display:flex; gap:10px; align-items:center; margin-top:12px; flex-wrap: wrap; }
+  button { border:0; border-radius:10px; padding:10px 14px; font-weight:600; cursor:pointer; }
+  #btnGerar { background:var(--acc); color:#00313a; }
+  #btnLimpar { background:#1f2937; color:var(--muted); }
+  .status { font-size:12px; color:var(--muted); margin-left:auto; }
+  .listwrap { margin-top:18px; }
+  ul { list-style:none; padding:0; margin:0; border:1px solid #1f2937; border-radius:12px; overflow:hidden; }
+  li { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 12px; border-bottom:1px solid #1f2937; }
+  li:last-child { border-bottom:0; }
+  .label { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .xbtn { background:transparent; color:var(--danger); border:1px solid #374151; border-radius:8px; padding:6px 10px; cursor:pointer; font-weight:700; }
+  .xbtn:hover { border-color:var(--danger); }
+  .error { color:#f87171; margin-top:8px; font-size:13px; }
+  .hint { font-size:12px; color:var(--muted); margin-top:6px; }
+</style>
 </head>
 <body>
-  <main class="container">
-    <div class="card">
-      <h1>Exemplo – Blip Chat</h1>
-      <p class="muted">Clique no botão flutuante no canto da página para abrir o chat.</p>
-      <div class="footer">Este é só um exemplo mínimo. Você pode colocar seu site aqui normalmente.</div>
-    </div>
-  </main>
+  <div class="wrap">
+    <h1>Gerador de Lista (com “x” pra remover item)</h1>
+    <div class="panel">
+      <label for="inputJson" class="hint">Cole aqui um JSON contendo um <b>array</b> (ex.: <code>["Maçã","Banana","Pera"]</code> ou <code>[1,2,3]</code> ou <code>[{"nome":"Ana"},{"nome":"Beto"}]</code> )</label>
+      <textarea id="inputJson" spellcheck="false" placeholder='Ex.: ["Item A","Item B","Item C"]'></textarea>
+      <div class="actions">
+        <button id="btnGerar">Gerar lista</button>
+        <button id="btnLimpar" title="Limpa a lista sem apagar o texto do JSON">Limpar lista</button>
+        <div class="status" id="status">0 itens</div>
+      </div>
+      <div id="error" class="error" style="display:none;"></div>
 
-  <script>
-    (function () {
-      window.onload = function () {
-        new BlipChat()
-          .withAppKey('Y2hhdGJvdGRvc2l0ZTo5ZDZjNjkyNi05YWIyLTRhNDQtOWE4MS01ZTA1NzZiMmViZmE=')
-          .withButton({
-            color: "#03473c",
-            icon: "https://blipmediastore.blob.core.windows.net/permanent/Media_4_b2aba655-4729-49f6-8aeb-b7d8a251b79f"
-          })
-          .withCustomCommonUrl('https://focosmais.chat.blip.ai/')
-          .build();
-      };
-    })();
-  </script>
+      <div class="listwrap">
+        <ul id="lista" aria-live="polite"></ul>
+      </div>
+      <div class="hint">Dica: para listas enormes, o app usa <i>event delegation</i> e <i>DocumentFragment</i> pra ficar mais leve.</div>
+    </div>
+  </div>
+
+<script>
+// ES5 puro
+(function () {
+  var input = document.getElementById('inputJson');
+  var btnGerar = document.getElementById('btnGerar');
+  var btnLimpar = document.getElementById('btnLimpar');
+  var lista = document.getElementById('lista');
+  var statusEl = document.getElementById('status');
+  var errorEl = document.getElementById('error');
+
+  // Mantém os dados atuais da lista (para referência, se precisar)
+  var dataAtual = [];
+
+  function setStatus(qtd) {
+    statusEl.textContent = (qtd || 0) + ' item' + ((qtd || 0) === 1 ? '' : 's');
+  }
+
+  function mostrarErro(msg) {
+    errorEl.style.display = 'block';
+    errorEl.textContent = msg;
+  }
+
+  function limparErro() {
+    errorEl.style.display = 'none';
+    errorEl.textContent = '';
+  }
+
+  function normalizarItemParaTexto(item) {
+    // Strings/números: vira string simples; objetos/arrays: JSON compactado
+    if (item === null || item === undefined) return String(item);
+    if (typeof item === 'string' || typeof item === 'number' || typeof item === 'boolean') {
+      return String(item);
+    }
+    try {
+      return JSON.stringify(item);
+    } catch (e) {
+      return String(item);
+    }
+  }
+
+  function renderLista(arr) {
+    // Limpa a UL
+    while (lista.firstChild) lista.removeChild(lista.firstChild);
+    dataAtual = arr.slice(); // cópia rasa
+
+    var frag = document.createDocumentFragment();
+    for (var i = 0; i < arr.length; i++) {
+      var li = document.createElement('li');
+      li.setAttribute('data-index', String(i));
+
+      var span = document.createElement('span');
+      span.className = 'label';
+      span.textContent = normalizarItemParaTexto(arr[i]);
+
+      var btn = document.createElement('button');
+      btn.className = 'xbtn';
+      btn.setAttribute('type', 'button');
+      btn.setAttribute('aria-label', 'Remover item');
+      btn.textContent = 'x';
+
+      li.appendChild(span);
+      li.appendChild(btn);
+      frag.appendChild(li);
+    }
+    lista.appendChild(frag);
+    setStatus(arr.length);
+  }
+
+  btnGerar.addEventListener('click', function () {
+    limparErro();
+    var raw = input.value.trim();
+    if (!raw) {
+      mostrarErro('Cole um JSON com array no campo acima.');
+      return;
+    }
+    var parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (e) {
+      mostrarErro('JSON inválido. Erro: ' + e.message);
+      return;
+    }
+    if (!Array.isArray(parsed)) {
+      mostrarErro('O JSON deve ser um ARRAY (ex.: ["A","B","C"]).');
+      return;
+    }
+    renderLista(parsed);
+  });
+
+  btnLimpar.addEventListener('click', function () {
+    renderLista([]);
+  });
+
+  // Remoção por delegação (pega cliques no UL)
+  lista.addEventListener('click', function (ev) {
+    var target = ev.target || ev.srcElement;
+    if (!target || target.tagName !== 'BUTTON') return;
+
+    // Acha o LI
+    var li = target.closest ? target.closest('li') : (function findLi(n){
+      while (n && n.tagName !== 'LI') n = n.parentNode;
+      return n;
+    })(target);
+
+    if (!li) return;
+
+    // Remove do DOM rapidamente
+    lista.removeChild(li);
+
+    // Recalcula dataAtual (opcional: aqui fazemos pelo texto do item/índice)
+    // Para listas grandes, recalcular índices é custoso; simplificamos:
+    var itens = lista.querySelectorAll('li');
+    var novoArr = [];
+    for (var i = 0; i < itens.length; i++) {
+      var labelSpan = itens[i].querySelector('.label');
+      novoArr.push(labelSpan ? labelSpan.textContent : '');
+      itens[i].setAttribute('data-index', String(i));
+    }
+    dataAtual = novoArr;
+    setStatus(dataAtual.length);
+  });
+
+  // Exemplo: coloca um JSON de exemplo pra facilitar o teste
+  input.value = '["Item A","Item B","Item C","Item D"]';
+})();
+</script>
 </body>
 </html>
